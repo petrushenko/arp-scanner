@@ -5,6 +5,6 @@
 * Get network adapters info and send ARP reqests to get MAC addresses of devises.
 
 
-*by Petrushenko Igor*
+*by Igor Petrushenko*
 
 *BSUIR*
