@@ -7,29 +7,36 @@
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "IPHLPAPI.lib")
 
-int getMacString(ULONG *mac, char *mac_str);
+#define LOG_FILE "log.txt"
+#define UCHAR BYTE
+#define END_PROG_STR "Scanning was succesfull! Press any key to exit..."
+
+//Convert MAC from BYTES to string
+int getMacString(BYTE *mac, char *mac_str);
+
+//Increment IP
 int incIP(IPAddr*);
 
 int main(void)
 {
-	struct in_addr   DestIpStruct;
+	struct in_addr DestIpStruct;
 
-	IPAddr	         DestIp = 0; //Ip для прослушивания
-	IPAddr		     SrcIp = 0;  //С какого устройства отправлять arp запрос
-	IPAddr			 NetwIp = 0;
-	IPAddr			 MaskIp = 0; 
+	IPAddr DestIp = 0; //Ip для прослушивания
+	IPAddr SrcIp = 0;  //С какого устройства отправлять arp запрос
+	IPAddr NetwIp = 0;
+	IPAddr MaskIp = 0; 
 
-	char			 ip_str[15], maskip_str[15], mac_str[18];
+	char ip_str[15], maskip_str[15], mac_str[18];
 
-	ULONG            MacAddr[2]; // MAC addr = 6 bytes
-	ULONG            PhysAddrLen;
-	ULONG			 hosts_count = 0;
+	ULONG MacAddr[2]; // MAC addr = 6 bytes
+	ULONG PhysAddrLen;
+	ULONG hosts_count = 0;
 
-	IP_ADAPTER_INFO  *pAdapterInfo; 
-	ULONG            ulOutBufLen = sizeof(IP_ADAPTER_INFO);
-	ULONG            dwRetVal = 0; // Errors
+	IP_ADAPTER_INFO *pAdapterInfo; 
+	ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
+	ULONG dwRetVal = 0; // Errors
 
-	FILE *f;
+	FILE *f; //file for loggin
 
 	pAdapterInfo = (IP_ADAPTER_INFO *)malloc(sizeof(IP_ADAPTER_INFO));
 
@@ -46,7 +53,7 @@ int main(void)
 
 	if (dwRetVal = GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == NO_ERROR) {
 
-		fopen_s(&f, "log.txt", "w+");
+		fopen_s(&f, LOG_FILE, "w+");
 
 		IP_ADAPTER_INFO *tmpPtrAdInf = pAdapterInfo;
 		while (tmpPtrAdInf) {
@@ -56,7 +63,7 @@ int main(void)
 			strcpy_s(maskip_str, 15, tmpPtrAdInf->IpAddressList.IpMask.String);
 			getMacString(tmpPtrAdInf->Address, mac_str);
 			printf_s("Adapter: %s   MAC: %s\n", tmpPtrAdInf->Description, mac_str);
-			fprintf_s(f, "Adapter: %s   MAC : %s\n", tmpPtrAdInf->Description, mac_str);
+			fprintf_s(f, "Adapter: %s   MAC: %s\n", tmpPtrAdInf->Description, mac_str);
 			
 			NetwIp = inet_addr(ip_str);
 			MaskIp = inet_addr(maskip_str);
@@ -67,7 +74,7 @@ int main(void)
 				fprintf_s(f, "IP: %s   Mask: %s\nInterfaces:\n", ip_str, maskip_str);
 				hosts_count = ntohl(~MaskIp); // возможное количество хостов исходя из маски подсети
 				
-				for (int i = 0; i <= hosts_count - 2; i++) {
+				for (ULONG i = 0; i <= hosts_count - 2; i++) {
 					incIP(&DestIp);
 
 					PhysAddrLen = 6;
@@ -76,15 +83,15 @@ int main(void)
 						DestIpStruct.S_un.S_addr = DestIp;
 						printf_s("For IP: %s", inet_ntoa(DestIpStruct));
 						fprintf_s(f, "For IP: %s", inet_ntoa(DestIpStruct));
-						getMacString(MacAddr, mac_str);
+						getMacString((BYTE *)MacAddr, mac_str);
 						printf_s(" MAC: %s\n", mac_str);
 						fprintf_s(f, " MAC: %s\n", mac_str);
 					}
 				} 
 			}
 			else {
-				printf_s("Adapter is not connected to any network\n");
-				fprintf_s(f, "Adapter is not connected to any network\n");
+				printf_s("Adapter is not operational\n");
+				fprintf_s(f, "Adapter is not operational\n");
 			} 
 			tmpPtrAdInf = tmpPtrAdInf->Next;
 		}
@@ -95,14 +102,14 @@ int main(void)
 		return dwRetVal;
 	}
 	free(pAdapterInfo);
-
+	printf_s(END_PROG_STR);
 	getchar();
 	return 0;
 } 
 
-int getMacString(ULONG *mac, char *mac_str)
-{
-	UCHAR *mac_byte = mac;
+int getMacString(BYTE *mac, char *mac_str)
+{ 
+	UCHAR *mac_byte = (UCHAR *)mac;
 
 	sprintf_s(mac_str, 18, "%02x-%02x-%02x-%02x-%02x-%02x", mac_byte[0], mac_byte[1], mac_byte[2], mac_byte[3],
 		mac_byte[4], mac_byte[5]);
@@ -113,9 +120,7 @@ int getMacString(ULONG *mac, char *mac_str)
 int incIP(IPAddr *ip)
 {
 	IPAddr tmp_ip = ntohl(*ip); //Перевод из интернет представления в представление на компьютере
-
 	tmp_ip += 1;
-
 	*ip = htonl(tmp_ip);
 
 	return 0;
