@@ -50,14 +50,14 @@ int main(void)
 			strcpy_s(ip_str, 15, tmpPtrAdInf->IpAddressList.IpAddress.String);
 			strcpy_s(maskip_str, 15, tmpPtrAdInf->IpAddressList.IpMask.String);
 			getMacString(tmpPtrAdInf->Address, mac_str);
-			printf_s("Adapter: %s   IP: %s   Mask: %s   MAC: %s\nInterfaces:\n",
-				tmpPtrAdInf->Description, ip_str, maskip_str, mac_str);
+			printf_s("Adapter: %s   MAC: %s\n", tmpPtrAdInf->Description, mac_str);
 
 			NetwIp = inet_addr(ip_str);
 			MaskIp = inet_addr(maskip_str);
 
 			DestIp = NetwIp & MaskIp; 
 			if (DestIp != 0) {
+				printf_s("IP: %s   Mask: %s\nInterfaces:\n", ip_str, maskip_str);
 				hosts_count = ntohl(~MaskIp); // возможное количество хостов исходя из маски подсети
 
 				for (int i = 0; i <= hosts_count - 2; i++) {
