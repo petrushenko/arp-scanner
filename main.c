@@ -23,7 +23,7 @@ int main(void)
 	char			 ip_str[15], maskip_str[15];
 
 	ULONG            MacAddr[2]; // MAC addr = 6 bytes
-	ULONG            PhysAddrLen = 6;
+	ULONG            PhysAddrLen;
 	ULONG			 hosts_count = 0;
 
 	IP_ADAPTER_INFO  *pAdapterInfo; 
@@ -55,23 +55,25 @@ int main(void)
 			NetwIp = inet_addr(ip_str);
 			MaskIp = inet_addr(maskip_str);
 
-			hosts_count = NetwIp & (~MaskIp); // возможное количество хостов исходя из маски подсети
-
 			DestIp = NetwIp & MaskIp; 
+			hosts_count = ntohl(~MaskIp); // возможное количество хостов исходя из маски подсети
 
-			for (int i = 0; i < hosts_count - 2; i++) {
+			for (int i = 0; i <= hosts_count - 2; i++) {
 				incIP(&DestIp);
 				 //SrcIp = 0
 
 				DestIpStruct.S_un.S_addr = DestIp;
-				printf_s("IP: %s; MAC:", inet_ntoa(DestIpStruct));
-				if (SendARP(DestIp, SrcIp, MacAddr, &PhysAddrLen) == NO_ERROR) {
+				printf_s("IP: %s; MAC: ", inet_ntoa(DestIpStruct));
+
+				PhysAddrLen = 6; //После неудачного ARP запроса PhysAddrLen -> обновляю до 6
+
+				if (dwRetVal = SendARP(DestIp, SrcIp, MacAddr, &PhysAddrLen) == NO_ERROR) {
 					getMacString(MacAddr);
 					printf_s("\n");
 				}
 				else {
-					printf_s("Can't reach this host\n");
-				}
+					printf_s("%d\n", dwRetVal);
+				} 
 			}
 			tmpPtrAdInf = tmpPtrAdInf->Next;
 		}
