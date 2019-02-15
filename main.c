@@ -1,4 +1,4 @@
-﻿#include <winsock.h>
+﻿#include <winsock.h> //древняя библеотека
 #include <iphlpapi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +29,8 @@ int main(void)
 	ULONG            ulOutBufLen = sizeof(IP_ADAPTER_INFO);
 	ULONG            dwRetVal = 0; // Errors
 
+	FILE *f;
+
 	pAdapterInfo = (IP_ADAPTER_INFO *)malloc(sizeof(IP_ADAPTER_INFO));
 
 	if (pAdapterInfo == NULL) {
@@ -43,6 +45,9 @@ int main(void)
 	}
 
 	if (dwRetVal = GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == NO_ERROR) {
+
+		fopen_s(&f, "log.txt", "w+");
+
 		IP_ADAPTER_INFO *tmpPtrAdInf = pAdapterInfo;
 		while (tmpPtrAdInf) {
 			memset(ip_str, 0, 15);
@@ -51,33 +56,39 @@ int main(void)
 			strcpy_s(maskip_str, 15, tmpPtrAdInf->IpAddressList.IpMask.String);
 			getMacString(tmpPtrAdInf->Address, mac_str);
 			printf_s("Adapter: %s   MAC: %s\n", tmpPtrAdInf->Description, mac_str);
-
+			fprintf_s(f, "Adapter: %s   MAC : %s\n", tmpPtrAdInf->Description, mac_str);
+			
 			NetwIp = inet_addr(ip_str);
 			MaskIp = inet_addr(maskip_str);
-
+			
 			DestIp = NetwIp & MaskIp; 
 			if (DestIp != 0) {
 				printf_s("IP: %s   Mask: %s\nInterfaces:\n", ip_str, maskip_str);
+				fprintf_s(f, "IP: %s   Mask: %s\nInterfaces:\n", ip_str, maskip_str);
 				hosts_count = ntohl(~MaskIp); // возможное количество хостов исходя из маски подсети
-
+				
 				for (int i = 0; i <= hosts_count - 2; i++) {
 					incIP(&DestIp);
 
 					PhysAddrLen = 6;
-					//SrcIp = 0
+					//SrcIp = 0 
 					if (SendARP(DestIp, SrcIp, MacAddr, &PhysAddrLen) == NO_ERROR) {
 						DestIpStruct.S_un.S_addr = DestIp;
 						printf_s("For IP: %s", inet_ntoa(DestIpStruct));
+						fprintf_s(f, "For IP: %s", inet_ntoa(DestIpStruct));
 						getMacString(MacAddr, mac_str);
 						printf_s(" MAC: %s\n", mac_str);
+						fprintf_s(f, " MAC: %s\n", mac_str);
 					}
-				}
+				} 
 			}
 			else {
 				printf_s("Adapter is not connected to any network\n");
-			}
+				fprintf_s(f, "Adapter is not connected to any network\n");
+			} 
 			tmpPtrAdInf = tmpPtrAdInf->Next;
 		}
+		fclose(f);
 	}
 	else {
 		free(pAdapterInfo);
