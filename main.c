@@ -1,15 +1,34 @@
 ﻿#include <stdio.h>
 #include <Windows.h>
+#include <Winsock.h>
+
+#pragma comment(lib, "Ws2_32.lib")
 
 #include <Iphlpapi.h>
 
 #pragma comment(lib, "IPHLPAPI.lib")
 
+int printMac(ULONG*);
+int incIP(IPAddr*);
+
 int main(void)
 {
-	IP_ADAPTER_INFO  *pAdapterInfo;
+	struct in_addr   DestIpStruct;
+
+	IPAddr	         DestIp = 0; //Ip для прослушивания
+	IPAddr		     SrcIp = 0;  //С какого устройства отправлять arp запрос
+	IPAddr			 NetwIp = 0;
+	IPAddr			 MaskIp = 0; 
+
+	char			 ip_str[15], maskip_str[15];
+
+	ULONG            MacAddr[2]; // MAC addr = 6 bytes
+	ULONG            PhysAddrLen = 6;
+	ULONG			 hosts_count = 0;
+
+	IP_ADAPTER_INFO  *pAdapterInfo; 
 	ULONG            ulOutBufLen = sizeof(IP_ADAPTER_INFO);
-	ULONG            dwRetVal = 0;
+	ULONG            dwRetVal = 0; // Errors
 
 	pAdapterInfo = (IP_ADAPTER_INFO *)malloc(sizeof(IP_ADAPTER_INFO));
 
@@ -27,10 +46,33 @@ int main(void)
 	if (dwRetVal = GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == NO_ERROR) {
 		IP_ADAPTER_INFO *tmpPtrAdInf = pAdapterInfo;
 		while (tmpPtrAdInf) {
-			printf_s("%s\n", tmpPtrAdInf->Description, 260);
-			printf_s("%s\n", tmpPtrAdInf->IpAddressList.IpAddress.String);
-			
-			
+			memset(ip_str, 0, 15);
+			memset(maskip_str, 0, 15);
+
+			strcpy_s(ip_str, 15, tmpPtrAdInf->IpAddressList.IpAddress.String);
+			strcpy_s(maskip_str, 15, tmpPtrAdInf->IpAddressList.IpMask.String);
+
+			NetwIp = inet_addr(ip_str);
+			MaskIp = inet_addr(maskip_str);
+
+			hosts_count = NetwIp & (~MaskIp); // возможное количество хостов исходя из маски подсети
+
+			DestIp = NetwIp & MaskIp; 
+
+			for (int i = 0; i < hosts_count - 2; i++) {
+				incIP(&DestIp);
+				 //SrcIp = 0
+
+				DestIpStruct.S_un.S_addr = DestIp;
+				printf_s("IP: %s; MAC:", inet_ntoa(DestIpStruct));
+				if (SendARP(DestIp, SrcIp, MacAddr, &PhysAddrLen) == NO_ERROR) {
+					getMacString(MacAddr);
+					printf_s("\n");
+				}
+				else {
+					printf_s("Can't reach this host\n");
+				}
+			}
 			tmpPtrAdInf = tmpPtrAdInf->Next;
 		}
 	}
@@ -41,5 +83,25 @@ int main(void)
 	free(pAdapterInfo);
 
 	getchar();
+	return 0;
+}
+
+int getMacString(ULONG *mac)
+{
+	UCHAR *mac_byte = mac;
+	for (int i = 0; i < 6; i++) {
+		printf_s("%02X-", mac_byte[i]);
+	}
+	return 0;
+}
+
+int incIP(IPAddr *ip)
+{
+	IPAddr tmp_ip = ntohl(*ip); //Перевод из интернет представления в представление на компьютере
+
+	tmp_ip += 1;
+
+	*ip = htonl(tmp_ip);
+
 	return 0;
 }
