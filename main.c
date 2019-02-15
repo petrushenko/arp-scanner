@@ -1,14 +1,13 @@
-﻿#include <stdio.h>
+﻿#include <winsock.h>
+#include <iphlpapi.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <Windows.h>
-#include <Winsock.h>
 
 #pragma comment(lib, "Ws2_32.lib")
-
-#include <Iphlpapi.h>
-
 #pragma comment(lib, "IPHLPAPI.lib")
 
-int printMac(ULONG*);
+int getMacString(ULONG *mac, char *mac_str);
 int incIP(IPAddr*);
 
 int main(void)
@@ -20,7 +19,7 @@ int main(void)
 	IPAddr			 NetwIp = 0;
 	IPAddr			 MaskIp = 0; 
 
-	char			 ip_str[15], maskip_str[15];
+	char			 ip_str[15], maskip_str[15], mac_str[18];
 
 	ULONG            MacAddr[2]; // MAC addr = 6 bytes
 	ULONG            PhysAddrLen;
@@ -48,32 +47,34 @@ int main(void)
 		while (tmpPtrAdInf) {
 			memset(ip_str, 0, 15);
 			memset(maskip_str, 0, 15);
-
 			strcpy_s(ip_str, 15, tmpPtrAdInf->IpAddressList.IpAddress.String);
 			strcpy_s(maskip_str, 15, tmpPtrAdInf->IpAddressList.IpMask.String);
+			getMacString(tmpPtrAdInf->Address, mac_str);
+			printf_s("Adapter: %s   IP: %s   Mask: %s   MAC: %s\nInterfaces:\n",
+				tmpPtrAdInf->Description, ip_str, maskip_str, mac_str);
 
 			NetwIp = inet_addr(ip_str);
 			MaskIp = inet_addr(maskip_str);
 
 			DestIp = NetwIp & MaskIp; 
-			hosts_count = ntohl(~MaskIp); // возможное количество хостов исходя из маски подсети
+			if (DestIp != 0) {
+				hosts_count = ntohl(~MaskIp); // возможное количество хостов исходя из маски подсети
 
-			for (int i = 0; i <= hosts_count - 2; i++) {
-				incIP(&DestIp);
-				 //SrcIp = 0
+				for (int i = 0; i <= hosts_count - 2; i++) {
+					incIP(&DestIp);
 
-				DestIpStruct.S_un.S_addr = DestIp;
-				printf_s("IP: %s; MAC: ", inet_ntoa(DestIpStruct));
-
-				PhysAddrLen = 6; //После неудачного ARP запроса PhysAddrLen -> обновляю до 6
-
-				if (dwRetVal = SendARP(DestIp, SrcIp, MacAddr, &PhysAddrLen) == NO_ERROR) {
-					getMacString(MacAddr);
-					printf_s("\n");
+					PhysAddrLen = 6;
+					//SrcIp = 0
+					if (SendARP(DestIp, SrcIp, MacAddr, &PhysAddrLen) == NO_ERROR) {
+						DestIpStruct.S_un.S_addr = DestIp;
+						printf_s("For IP: %s", inet_ntoa(DestIpStruct));
+						getMacString(MacAddr, mac_str);
+						printf_s(" MAC: %s\n", mac_str);
+					}
 				}
-				else {
-					printf_s("%d\n", dwRetVal);
-				} 
+			}
+			else {
+				printf_s("Adapter is not connected to any network\n");
 			}
 			tmpPtrAdInf = tmpPtrAdInf->Next;
 		}
@@ -86,14 +87,15 @@ int main(void)
 
 	getchar();
 	return 0;
-}
+} 
 
-int getMacString(ULONG *mac)
+int getMacString(ULONG *mac, char *mac_str)
 {
 	UCHAR *mac_byte = mac;
-	for (int i = 0; i < 6; i++) {
-		printf_s("%02X-", mac_byte[i]);
-	}
+
+	sprintf_s(mac_str, 18, "%02x-%02x-%02x-%02x-%02x-%02x", mac_byte[0], mac_byte[1], mac_byte[2], mac_byte[3],
+		mac_byte[4], mac_byte[5]);
+
 	return 0;
 }
 
